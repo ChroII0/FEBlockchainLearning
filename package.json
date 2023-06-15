@@ -1,0 +1,26 @@
+{
+  "name": "smart-contract",
+  "version": "1.0.0",
+  "description": "This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "migrate:goerli": "npx hardhat run --network goerli ./scripts/deploy.ts",
+    "migrate:sepolia": "npx hardhat run --network sepolia ./scripts/deploy.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "hardhat": "^2.14.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.1",
+    "dotenv": "^16.1.4",
+    "ethers": "^5.7.2"
+  },
+  "directories": {
+    "test": "test"
+  }
+}
