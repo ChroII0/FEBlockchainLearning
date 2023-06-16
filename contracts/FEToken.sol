@@ -8,7 +8,7 @@ import "./interfaces/IAdminControl.sol";
 contract FEToken is ERC20, ERC20Burnable {
 
     IAdminControl private _adminControl;
-    address[] private trainers;
+
     mapping (address => bool) alreadyTrainers;
     constructor(address adminControl) ERC20("FE Token", "FET") {
         _adminControl = IAdminControl(adminControl);
@@ -23,9 +23,6 @@ contract FEToken is ERC20, ERC20Burnable {
     }
     function mint(address to, uint256 amount) external onlyMinter(msg.sender){
         _mint(to, amount);
-        if (alreadyTrainers[to] == false){
-            trainers.push(to);
-        }
     }
     function burn(address to, uint256 amount) external onlyBurner(msg.sender){
         _burn(to, amount);

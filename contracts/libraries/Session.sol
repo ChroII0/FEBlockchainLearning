@@ -30,7 +30,8 @@ library Session {
         Training,
         Trained,
         Testing,
-        Tested
+        Tested,
+        Aggregating
     }
     struct BaseReward {
         uint256 trainingReward;
@@ -51,8 +52,7 @@ library Session {
         Info info;
         uint256 globalModelId;
         uint256 latestGlobalModelParamId;
-        address[] trainers;
-        address aggreator;
+        address aggregator;
         uint256 numberOfTrainingSubmitted;
         uint256 numberOfTestingSubmitted;
         uint256 numberTrainerNotYetSelectedForTesting;
