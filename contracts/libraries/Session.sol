@@ -12,13 +12,15 @@ library Session {
     enum TrainerStatus {
         Unavailable,
         Training,
-        TrainedFaild,
+        TrainedFailed,
         Trained,
         Testing,
         Tested,
+        TestedFailed,
+        TrainedAndTestedFailed,
         Aggregating,
         Aggregated,
-        AggregatedFaild
+        AggregatedFailed
     }
     struct TrainerDetail {
         uint256 updateId;

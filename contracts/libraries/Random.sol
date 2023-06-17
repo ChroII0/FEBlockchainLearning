@@ -8,11 +8,11 @@ library Random {
         return random;
     }
     
-    function randomArrayValue(uint256[] memory arr) public view returns (uint256) {
+    // function randomArrayValue(uint256[] memory arr) public view returns (uint256) {
         
-        uint256 randomIndex = randomNumber(arr.length);
-        uint256 randomValue = arr[randomIndex];
+    //     uint256 randomIndex = randomNumber(arr.length);
+    //     uint256 randomValue = arr[randomIndex];
         
-        return randomValue;
-    }
+    //     return randomValue;
+    // }
 }

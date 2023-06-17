@@ -14,13 +14,12 @@ contract TrainerManagement {
 
     IAdminControl private _adminControl;
 
+    constructor(address adminControl) {
+        _adminControl = IAdminControl(adminControl);
+    }
     modifier onlyAdmin(address account) {
         require(_adminControl.isAdmin(account) == true, "You are not admin");
         _;
-    }
-
-    constructor(address adminControl) {
-        _adminControl = IAdminControl(adminControl);
     }
 
     // function addToBlocklist(address trainer) external onlyAdmin(msg.sender) {

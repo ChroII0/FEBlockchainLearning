@@ -13,16 +13,22 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
     using Random for *;
 
     Session.Detail[] private _sessions;
+    // sessionId => rtf
     mapping (uint256 => uint256) private _randomTestingFactor;
+    // owner => sessionKey[]
     mapping (address => uint256[]) private _sessionKeysByOwner;
-    
+    // ownerSession => balanceFeToken
     mapping (uint256 => uint256) public balanceFeTokenInSession;
+    // trainer => sessionId[]
     mapping (address => uint256[]) private _sessionJoined;
     mapping (address => uint256) private _numCurrentSessionJoined;
+    // sessionId => key
     mapping (uint256 => uint256) private _keyOfSessionDetailBySessionId;
-    mapping (uint256 => mapping (uint256 => address[])) private _trainers; // sessionId => round => trainer[]
+    // sessionId => round => trainer[]
+    mapping (uint256 => mapping (uint256 => address[])) private _trainers;
     // sessionId => round => trainer 
     mapping (uint256 => mapping (uint256 => mapping (address => Session.TrainerDetail))) private _trainerDetails;
+    // sessionId => round => candidateAggregator[]
     mapping (uint256 => mapping (uint256 => address[])) private _candidateAggregator;
 
     // uint256 public constant LOCK_TIME_REWARD = 7 days;
@@ -191,17 +197,18 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
 
         emit SessionCreated(msg.sender, sessionId, totalReward);
     }
+    //FIXME: 
     function removeSession(uint256 sessionId) external lock override {
-        uint256 key = _keyOfSessionDetailBySessionId[sessionId];
-        require(_sessions[key].info.owner == msg.sender);
-        require(_sessions[key].info.status == Session.RoundStatus.Ready);
-        uint256 rewardRemaining = balanceFeTokenInSession[sessionId] / (10**REWARD_DECIMAL);
-        balanceFeTokenInSession[sessionId] = 0;
-        _sessions[key].info.currentRound = _sessions[key].info.maxRound;
-        _sessions[key].info.status = Session.RoundStatus.End;
-        payable(msg.sender).transfer(rewardRemaining);
+        // uint256 key = _keyOfSessionDetailBySessionId[sessionId];
+        // require(_sessions[key].info.owner == msg.sender);
+        // require(_sessions[key].info.status == Session.RoundStatus.Ready);
+        // uint256 rewardRemaining = balanceFeTokenInSession[sessionId] / (10**REWARD_DECIMAL);
+        // balanceFeTokenInSession[sessionId] = 0;
+        // _sessions[key].info.currentRound = _sessions[key].info.maxRound;
+        // _sessions[key].info.status = Session.RoundStatus.End;
+        // payable(msg.sender).transfer(rewardRemaining);
 
-        emit SessionRemoved(msg.sender, sessionId, rewardRemaining);
+        // emit SessionRemoved(msg.sender, sessionId, rewardRemaining);
     }
 
 
@@ -514,6 +521,24 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         _sessions[sessionKey].numberOfErrorTrainerUpdateId = 0;
         _sessions[sessionKey].aggregator = address(0);
     }
+    function _checkBadTester(uint256 sessionId, uint256 currentRound) internal {
+        for (uint256 i = 0; i < _trainers[sessionId][currentRound].length; i++){
+            address trainer = _trainers[sessionId][currentRound][i];
+            if (_trainerDetails[sessionId][currentRound][trainer].trainerReportedBadUpdateIdInTestingRound.length == 1
+                && _trainerDetails[sessionId][currentRound][trainer].aggregatorReportedBadUpdateIdInAggregateRound == false
+            ){
+                address tester = _trainerDetails[sessionId][currentRound][trainer].trainerReportedBadUpdateIdInTestingRound[0];
+                if (_trainerDetails[sessionId][currentRound][tester].status == Session.TrainerStatus.TrainedFailed)
+                {
+                    _trainerDetails[sessionId][currentRound][tester].status = Session.TrainerStatus.TrainedAndTestedFailed;
+                }
+                else
+                {
+                    _trainerDetails[sessionId][currentRound][tester].status = Session.TrainerStatus.TestedFailed;
+                }
+            }
+        }
+    }
     function submitAggregate(uint256 sessionId, uint256 updateId, uint256[] memory indexOfTrainerHasBadUpdateId) external lock override {
         require(_trainerManagement.isAllowed(msg.sender) == true, "You are not allowed");
         uint256 key = _keyOfSessionDetailBySessionId[sessionId];
@@ -529,12 +554,13 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
                     unchecked {
                         countErrorUpdateIdInAggregatingRound += 1;
                     }
-                    _trainerDetails[sessionId][currentRound][trainer].status = Session.TrainerStatus.TrainedFaild;
+                    _trainerDetails[sessionId][currentRound][trainer].status = Session.TrainerStatus.TrainedFailed;
                 }
                 _trainerDetails[sessionId][currentRound][trainer].aggregatorReportedBadUpdateIdInAggregateRound = true;
             }
         }
         if (countErrorUpdateIdInAggregatingRound == numberOfErrorTrainerUpdateId){
+            _checkBadTester(sessionId, currentRound);
             _sessions[key].latestGlobalModelParamId = updateId;
             _trainerDetails[sessionId][currentRound][msg.sender].status = Session.TrainerStatus.Aggregated;
             _receiveBaseAggregateReward(msg.sender, key);
@@ -552,7 +578,7 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         }
         else {
             _sessions[key].aggregator = address(0);
-            _trainerDetails[sessionId][currentRound][msg.sender].status = Session.TrainerStatus.AggregatedFaild;
+            _trainerDetails[sessionId][currentRound][msg.sender].status = Session.TrainerStatus.AggregatedFailed;
         }
     }
     function withdraw(uint256 amountETH) external lock override {

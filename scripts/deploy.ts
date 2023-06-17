@@ -1,5 +1,6 @@
 import { ethers, hardhatArguments, run } from "hardhat";
 import fs from "fs";
+import sleep from 'sleep-promise';
 
 const network: string = hardhatArguments.network as string;
 const addressOutput = `${__dirname}/networks/${network}/address.json`;
@@ -24,10 +25,12 @@ async function main() {
   const [
     AdminControl,
     TrainerManagement,
+    FEToken,
     FEBlockchainLearning
   ] = await Promise.all([
     ethers.getContractFactory("AdminControl"),
     ethers.getContractFactory("TrainerManagement"),
+    ethers.getContractFactory("FEToken"),
     ethers.getContractFactory("FEBlockchainLearning")
   ]);
   const saveAddresses = async () => {
@@ -64,6 +67,7 @@ async function main() {
   try {
     let adminControl: any;
     let trainerManagement: any;
+    let feToken: any;
     let feBlockchainLearning: any;
     // Deploy AdminControl 
     await runWithProgressCheck("AdminControl", async () => {
@@ -73,46 +77,88 @@ async function main() {
         console.log(`AdminControl address at: ${explorer}/address/${adminControl.address}`);
         addresses.AdminControl = adminControl.address;
       }
+      await sleep(30000);
       await run("verify:verify", {
-        address: adminControl.address
+        address: addresses.AdminControl
       }).catch(e => console.log(e.message));
     });
     // Deploy TrainerManager
     await runWithProgressCheck("TrainerManagement", async () => {
       if (!addresses.TrainerManagement) {
-        trainerManagement = await TrainerManagement.deploy(adminControl.address);
-        if (adminControl && adminControl.deployed) {
-          await trainerManagement.deployed();
-          console.log(`TrainerManagement address at: ${explorer}/address/${trainerManagement.address}`);
-          addresses.TrainerManagement = trainerManagement.address;
+        trainerManagement = await TrainerManagement.deploy(addresses.AdminControl);
+        await trainerManagement.deployed();
+        console.log(`TrainerManagement address at: ${explorer}/address/${trainerManagement.address}`);
+        addresses.TrainerManagement = trainerManagement.address;
+      }
+      await sleep(30000);
+      await run("verify:verify", {
+        address: addresses.TrainerManagement,
+        constructorArguments: [
+          addresses.AdminControl
+        ]
+      }).catch(e => console.log(e.message));
+    });
+    // Deploy FEToken
+    await runWithProgressCheck("FEToken", async () => {
+      if (!addresses.FEToken) {
+        feToken = await FEToken.deploy(adminControl.address);
+        if (feToken && feToken.deployed) {
+          await feToken.deployed();
+          console.log(`FEToken address at: ${explorer}/address/${feToken.address}`);
+          addresses.FEToken = feToken.address;
         }
-        else{
+        else {
           console.log("error");
           return;
         }
       }
+      await sleep(30000);
       await run("verify:verify", {
-        address: trainerManagement.address,
+        address: addresses.FEToken,
         constructorArguments: [
-          adminControl.address
+          addresses.AdminControl
         ]
       }).catch(e => console.log(e.message));
     });
     // Deploy FEBlockchainLearning
     await runWithProgressCheck("FEBlockchainLearning", async () => {
       if (!addresses.FEBlockchainLearning) {
-        feBlockchainLearning = await FEBlockchainLearning.deploy(trainerManagement.address, adminControl.address);
+        feBlockchainLearning = await FEBlockchainLearning.deploy(addresses.AdminControl, addresses.TrainerManagement, addresses.FEToken);
         await feBlockchainLearning.deployed();
         console.log(`FEBlockchainLearning address at: ${explorer}/address/${feBlockchainLearning.address}`);
-        addresses.feBlockchainLearning = feBlockchainLearning.address;
+        addresses.FEBlockchainLearning = feBlockchainLearning.address;
       }
+      await sleep(30000);
       await run("verify:verify", {
-        address: feBlockchainLearning.address,
+        address: addresses.FEBlockchainLearning,
         constructorArguments: [
-          trainerManagement.address,
-          adminControl.address
+          addresses.AdminControl,
+          addresses.TrainerManagement,
+          addresses.FEToken
         ]
       }).catch(e => console.log(e.message));
+    });
+    await sleep(5000);
+    // setMinter
+    await runWithProgressCheck("AdminControl.setMinter", async () => {
+      if (!addresses.FEToken || !addresses.AdminControl || !addresses.FEToken) {
+        await adminControl.setMinter(addresses.FEBlockchainLearning);
+      }
+      else {
+        console.log("setMinter Error");
+        return;
+      }
+    });
+    await sleep(5000);
+    // setBurn
+    await runWithProgressCheck("AdminControl.setBurnter", async () => {
+      if (!addresses.FEToken || !addresses.AdminControl || !addresses.FEToken) {
+        await adminControl.setBurnter(addresses.FEBlockchainLearning);
+      }
+      else {
+        console.log("setBurnter Error");
+        return;
+      }
     });
   } catch (error) {
     console.log(error);

@@ -1,1 +1,8 @@
-{}
+{
+  "AdminControl": true,
+  "TrainerManagement": true,
+  "FEToken": true,
+  "FEBlockchainLearning": true,
+  "AdminControl.setMinter": true,
+  "AdminControl.setBurnter": true
+}
