@@ -135,7 +135,11 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         uint256 key = _keyOfSessionDetailBySessionId[sessionId];
         uint256 currentRound = _sessions[key].info.currentRound;
         for (uint256 i = 0; i < _candidateAggregator[sessionId][currentRound].length; i++){
-            if (_candidateAggregator[sessionId][currentRound][i] == trainer && _sessions[key].info.status == Session.RoundStatus.Scored)
+            if (
+                _candidateAggregator[sessionId][currentRound][i] == trainer
+                && _sessions[key].aggregator ==  address(0)
+                && _trainerDetails[sessionId][currentRound][trainer].status == Session.TrainerStatus.Tested
+                )
             {
                 return true;
             }
@@ -395,7 +399,7 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         _receiveTestingReward(msg.sender, key);
         if (_sessions[key].numberOfTestingSubmitted == _sessions[key].info.maxTrainerInOneRound)
         {
-            _sessions[key].info.status = Session.RoundStatus.Scored;
+            _sessions[key].info.status = Session.RoundStatus.Aggregating;
         }
     }
 
@@ -411,8 +415,9 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
     function selectCandidateAggregator(uint256 sessionId) external view override returns(address[] memory) {
         uint256 key = _keyOfSessionDetailBySessionId[sessionId];
         require(_sessions[key].info.owner == msg.sender);
-        require(_sessions[key].info.status == Session.RoundStatus.Scored);
+        require(_sessions[key].info.status == Session.RoundStatus.Aggregating);
         uint256 currentRound = _sessions[key].info.currentRound;
+        require(_candidateAggregator[sessionId][currentRound].length == 0);
 
         address[] memory candidates = new address[](MUN_CANDIDATE_AGGREGATOR);
         uint256[] memory balanceOfCandidates = new uint256[](MUN_CANDIDATE_AGGREGATOR);
@@ -452,8 +457,9 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         require(_trainerManagement.isAllowed(msg.sender) == true, "You are not allowed");
         uint256 key = _keyOfSessionDetailBySessionId[sessionId];
         require(_sessions[key].info.owner == msg.sender);
-        require(_sessions[key].info.status == Session.RoundStatus.Scored);
+        require(_sessions[key].info.status == Session.RoundStatus.Aggregating);
         uint256 currentRound = _sessions[key].info.currentRound;
+        require(_candidateAggregator[sessionId][currentRound].length == 0);
         require(_checkCandidateIsTrainerInSession(key, currentRound, candidates));
         _candidateAggregator[sessionId][currentRound] = candidates;
     } 
@@ -461,7 +467,7 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
     function applyAggregator(uint256 sessionId) external override {
         require(_trainerManagement.isAllowed(msg.sender) == true, "You are not allowed");
         uint256 key = _keyOfSessionDetailBySessionId[sessionId];
-        require(_sessions[key].info.status == Session.RoundStatus.Scored);
+        require(_sessions[key].info.status == Session.RoundStatus.Aggregating);
         require(_checkOpportunityAggregate(sessionId, msg.sender));
         _sessions[key].aggregator = msg.sender;
         _sessions[key].info.status = Session.RoundStatus.Aggregating;
@@ -536,9 +542,24 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         }
         else {
             _sessions[key].info.status = Session.RoundStatus.Aggregating;
+            _sessions[key].aggregator = address(0);
+            _trainerDetails[sessionId][currentRound][msg.sender].status = Session.TrainerStatus.End;
         }
     }
-    // function withdraw(uint256 amount) external lock override {}
+    // function _checkAvailabilityBalance(address owner) internal view returns(uint bal)
+    // {
+    //     for (uint i = 0; i < _sessionKeysByOwner[owner].length; i++){
+    //         uint256 sessionKey = _sessionKeysByOwner[owner][i];
+    //         uint256 sessionId = _sessions[sessionKey].info.sessionId;
+    //         uint256 currentRound = _sessions[sessionKey].info.currentRound;
+    //         if (_sessions[sessionId].info.status == Session.RoundStatus.End){
+    //             if (_trainerDetails[sessionId][currentRound][owner].status == Session.TrainerStatus.Tested){
+                    
+    //             }
+    //         }
+    //     }
+    // }
+    function withdraw(uint256 amount) external lock override {}
 }
 /**
  * 10 => 70
