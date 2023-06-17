@@ -9,7 +9,7 @@ interface IFEBlockchainLearingMetadata {
     function allSession() external view returns(Session.Info[] memory);
     function sessionById(uint256 sessionId) external view returns(Session.Info memory session);
     function getDataDoTraining(uint256 sessionId) external view returns(uint256, uint256);
-    function getDataDoTesting(uint256 sessionId) external view returns(address[] memory, uint256[] memory);
+    function getDataDoTesting(uint256 sessionId) external view returns(uint256[] memory);
     function selectCandidateAggregator(uint256 sessionId) external view returns(address[] memory);
     function checkOpportunityAggregate(uint256 sessionId) external view returns(bool);
     function getDataDoAggregate(uint256 sessionId) external view returns(uint256[] memory);

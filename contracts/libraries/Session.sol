@@ -20,7 +20,9 @@ library Session {
     }
     struct TrainerDetail {
         uint256 updateId;
-        uint256 numSelectedForTesting;
+        uint256 indexInTrainerList;
+        address[] trainerReportedBadUpdateIdInTestingRound;
+        bool aggregatorReportedBadUpdateIdInAggregateRound;
         TrainerStatus status;
         scoreObject scores;
     }
@@ -33,7 +35,7 @@ library Session {
     //     End
     // }
     enum RoundStatus {
-        Unavailable,
+        Ready,
         Training,
         Scoring,
         Scored,
@@ -52,7 +54,6 @@ library Session {
         BaseReward baseReward;
         uint256 maxRound;
         uint256 currentRound;
-        uint256 currentNumTrainer;
         uint256 maxTrainerInOneRound;
         RoundStatus status;
     }
@@ -63,6 +64,7 @@ library Session {
         address aggregator;
         uint256 numberOfTrainingSubmitted;
         uint256 numberOfTestingSubmitted;
+        uint256 numberOfErrorTrainerUpdateId;
         // uint256 numberTrainerNotYetSelectedForTesting;
         // mapping(address => bool) selectedForTesting;
     }
