@@ -9,10 +9,25 @@ library Session {
         uint256 recall;
         uint256 f1;
     }
-    struct TesterStatus {
-        address trainerSelected;
-        bool isTester;
+    enum TrainerStatus {
+        Unavailable,
+        Training,
+        Trained,
+        Testing,
+        Tested,
+        Aggregating,
+        End
     }
+    struct TrainerDetail {
+        uint256 updateId;
+        uint256 numSelectedForTesting;
+        TrainerStatus status;
+        scoreObject scores;
+    }
+    // struct TesterStatus {
+    //     address trainerSelected;
+    //     bool isTester;
+    // }
     // enum SessionStatus {
     //     Ready,
     //     End
@@ -24,14 +39,6 @@ library Session {
         Scored,
         Aggregating,
         End
-    }
-    enum TrainerStatus {
-        Unavailable,
-        Training,
-        Trained,
-        Testing,
-        Tested,
-        Aggregating
     }
     struct BaseReward {
         uint256 trainingReward;
@@ -45,6 +52,7 @@ library Session {
         BaseReward baseReward;
         uint256 maxRound;
         uint256 currentRound;
+        uint256 currentNumTrainer;
         uint256 maxTrainerInOneRound;
         RoundStatus status;
     }
@@ -55,7 +63,7 @@ library Session {
         address aggregator;
         uint256 numberOfTrainingSubmitted;
         uint256 numberOfTestingSubmitted;
-        uint256 numberTrainerNotYetSelectedForTesting;
+        // uint256 numberTrainerNotYetSelectedForTesting;
         // mapping(address => bool) selectedForTesting;
     }
 }
