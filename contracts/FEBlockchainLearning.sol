@@ -269,7 +269,9 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         require(_trainerDetails[sessionId][currentRound][msg.sender].status == Session.TrainerStatus.Training);
         _trainerDetails[sessionId][currentRound][msg.sender].updateId = updateId;
         _trainerDetails[sessionId][currentRound][msg.sender].status == Session.TrainerStatus.Trained;
-        _sessions[key].numberOfTrainingSubmitted += 1;
+        unchecked {
+            _sessions[key].numberOfTrainingSubmitted += 1;
+        }
 
         _receiveBaseTrainingReward(msg.sender, key);
         
@@ -350,7 +352,9 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         uint256[] memory indexOfTrainerListSelectedForTesting = _getIndexTrainerSelectedForTest(sessionId, lenTrainerList, indexSender);
         
         for (uint256 i = 0; i < updateIds.length; i++){
-            updateIds[i] = indexOfTrainerListSelectedForTesting[i];
+            uint256 indexTrainerSelected = indexOfTrainerListSelectedForTesting[i];
+            address trainerSelected = _trainers[sessionId][currentRound][indexTrainerSelected];
+            updateIds[i] = _trainerDetails[sessionId][currentRound][trainerSelected].updateId;
         }
         return updateIds;
     }
