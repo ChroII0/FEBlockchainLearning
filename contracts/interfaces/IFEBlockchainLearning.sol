@@ -38,7 +38,7 @@ interface IFEBlockchainLearning is IFEBlockchainLearningMetadata{
 
     function submitScores(uint256 sessionId, uint256[] memory scores) external;
 
-    function submitCandidateAggregator(uint256 sessionId, address[] memory candidates) external;
+    function submitCandidateAggregator(uint256 sessionId, uint256 candidatesEncode) external;
     function submitAggregate(uint256 sessionId, uint256 updateId, uint256[] memory indexOfTrainerHasBadUpdateId) external;
     
     function withdraw(uint256 amount) external;

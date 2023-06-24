@@ -221,7 +221,7 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         _sessions.push(sDetail);
         _keyOfSessionDetailBySessionId[sessionId] = _sessions.length - 1;
         _sessionKeysByOwner[msg.sender].push(_sessions.length - 1);
-        _randomFactor[sessionId] = Random.randomNumber(maxTrainerInOneRound - 1) + 1;
+        _randomFactor[sessionId] = Random.randomNumber(2**42 - 1);
 
         uint256 totalReward = msg.value * 10**REWARD_DECIMAL;
         balanceFeTokenInSession[sessionId] = totalReward;
@@ -396,14 +396,14 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         uint256 seedForRound = uint256(keccak256(abi.encodePacked(roundStatus))) % lenTrainerList;
         indexs = new uint256[](MIN_TRAINER_IN_ROUND - 1);
 
-        indexs[0] = (indexSender + _randomFactor[sessionId] + seedForRound > lenTrainerList)
-                        ? (indexSender + _randomFactor[sessionId] + seedForRound) % lenTrainerList - 1
-                        : indexSender + _randomFactor[sessionId] + seedForRound;
+        indexs[0] = (indexSender + _randomFactor[sessionId] % lenTrainerList + seedForRound > lenTrainerList)
+                        ? (indexSender + _randomFactor[sessionId] % lenTrainerList + seedForRound) % lenTrainerList - 1
+                        : indexSender + _randomFactor[sessionId] % lenTrainerList + seedForRound;
 
         for (uint256 i = 1 ; i < (MIN_TRAINER_IN_ROUND - 1); i++){
-            indexs[i] = (indexs[i-1] + _randomFactor[sessionId] + seedForRound > lenTrainerList)
-                        ? (indexs[i-1] + _randomFactor[sessionId] + seedForRound) % lenTrainerList - 1
-                        : indexs[i-1] + _randomFactor[sessionId] + seedForRound;
+            indexs[i] = (indexs[i-1] + _randomFactor[sessionId] % lenTrainerList + seedForRound > lenTrainerList)
+                        ? (indexs[i-1] + _randomFactor[sessionId] % lenTrainerList + seedForRound) % lenTrainerList - 1
+                        : indexs[i-1] + _randomFactor[sessionId] % lenTrainerList + seedForRound;
         }
     }
 
@@ -596,14 +596,33 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
      * 
      * 
      */
-    function selectCandidateAggregator(uint256 sessionId) external view override returns(address[] memory) {
+    function _encodeCandidates(uint256[] memory values, uint256 rf) internal pure returns (uint256 value) {
+        uint256 bitIndex = 90;
+        value |= rf;
+        for (uint256 i = 0; i < values.length; i++){
+            value |= values[i] << bitIndex;
+            bitIndex += 15;
+        }
+        value *= rf;
+    }
+    function _decodeCandidates(uint256 value, uint256 rf) internal pure returns(uint256[] memory values) {
+        value /= rf;
+        uint256 bitIndex = 0;
+        values[0] = (((2**90 - 1) << bitIndex) & value) >> bitIndex;
+        bitIndex += 90;
+        for (uint256 i = 1; i < (MUN_CANDIDATE_AGGREGATOR + 1); i++){
+            values[i] = (((2**15 - 1) << bitIndex) & value) >> bitIndex;
+            bitIndex += 15;
+        }
+    }
+    function selectCandidateAggregator(uint256 sessionId) external view override returns(uint256 candidatesEncode) {
         uint256 key = _keyOfSessionDetailBySessionId[sessionId];
         require(_sessions[key].info.owner == msg.sender);
         require(_sessions[key].info.status == Session.RoundStatus.Checked);
         uint256 currentRound = _sessions[key].info.currentRound;
         require(_candidateAggregator[sessionId][currentRound].length == 0);
 
-        address[] memory candidates = new address[](MUN_CANDIDATE_AGGREGATOR);
+        uint256[] memory candidates = new uint256[](MUN_CANDIDATE_AGGREGATOR);
         uint256[] memory balanceOfCandidates = new uint256[](MUN_CANDIDATE_AGGREGATOR);
         
         for (uint256 i = 0; i < _sessions[key].info.maxTrainerInOneRound; i++){
@@ -620,14 +639,14 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
                             break;
                         }
                         balanceOfCandidates[k] = balanceOfCandidates[k-1];
-                        candidates[k] = candidates[k-1];
+                        candidates[k] = k-1;
                     }
                     balanceOfCandidates[j] = balanceOf;
-                    candidates[j] = trainer;
+                    candidates[j] = i;
                 }
             }
         }
-        return candidates;
+        return _encodeCandidates(candidates, _randomFactor[sessionId]);
     }
     function _checkCandidateIsTrainerInSession(uint256 sessionKey, uint256 currentRound, address[] memory candidates) internal view returns(bool){
         for (uint256 i = 0; i < candidates.length; i++){
@@ -637,16 +656,17 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         }
         return true;
     }
-    function submitCandidateAggregator(uint256 sessionId, address[] memory candidates) external override {
+    function submitCandidateAggregator(uint256 sessionId, uint256 candidatesEncode) external override {
         require(_trainerManagement.isAllowed(msg.sender) == true, "You are not allowed");
         uint256 key = _keyOfSessionDetailBySessionId[sessionId];
         require(_sessions[key].info.owner == msg.sender);
         require(_sessions[key].info.status == Session.RoundStatus.Checked);
-        require(candidates.length == MUN_CANDIDATE_AGGREGATOR);
         uint256 currentRound = _sessions[key].info.currentRound;
         require(_candidateAggregator[sessionId][currentRound].length == 0);
-        require(_checkCandidateIsTrainerInSession(key, currentRound, candidates));
-        _candidateAggregator[sessionId][currentRound] = candidates;
+
+        uint256[] memory candidates = _decodeCandidates(candidatesEncode, _randomFactor[sessionId]);
+        require(candidates[0] == _randomFactor[sessionId]);
+        
     } 
 
     function applyAggregator(uint256 sessionId) external override {
