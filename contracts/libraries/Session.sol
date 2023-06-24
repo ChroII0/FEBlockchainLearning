@@ -14,6 +14,8 @@ library Session {
         Training,
         TrainedFailed,
         Trained,
+        Checking,
+        Checked,
         Testing,
         Tested,
         TestedFailed,
@@ -25,6 +27,7 @@ library Session {
     struct TrainerDetail {
         uint256 updateId;
         uint256 indexInTrainerList;
+        address[] trainerReportedBadUpdateIdInCheckingRound;
         address[] trainerReportedBadUpdateIdInTestingRound;
         bool aggregatorReportedBadUpdateIdInAggregateRound;
         TrainerStatus status;
@@ -41,15 +44,17 @@ library Session {
     enum RoundStatus {
         Ready,
         Training,
-        Scoring,
-        Scored,
+        Checking,
+        Checked,
         Aggregating,
+        Testing,
         End
     }
     struct BaseReward {
         uint256 trainingReward;
-        uint256 testingReward;
+        uint256 checkingReward;
         uint256 aggregateReward;
+        uint256 testingReward;
     }
     struct Info {
         uint256 sessionId;
@@ -66,8 +71,7 @@ library Session {
         uint256 globalModelId;
         uint256 latestGlobalModelParamId;
         address aggregator;
-        uint256 numberOfTrainingSubmitted;
-        uint256 numberOfTestingSubmitted;
+        uint256 countSubmitted;
         uint256 numberOfErrorTrainerUpdateId;
         // uint256 numberTrainerNotYetSelectedForTesting;
         // mapping(address => bool) selectedForTesting;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import "./interfaces/IAdminControl.sol";
+import "./interfaces/IAdminControlMetadata.sol";
 
 contract TrainerManagement {
     // mapping(address => bool) private _blocklist;
@@ -12,10 +12,10 @@ contract TrainerManagement {
     // event trainerRemovedFromBlocklist(address indexed trainer);
     event trainerRemovedFromAllowlist(address indexed trainer);
 
-    IAdminControl private _adminControl;
+    IAdminControlMetadata private _adminControl;
 
     constructor(address adminControl) {
-        _adminControl = IAdminControl(adminControl);
+        _adminControl = IAdminControlMetadata(adminControl);
     }
     modifier onlyAdmin(address account) {
         require(_adminControl.isAdmin(account) == true, "You are not admin");
