@@ -13,6 +13,7 @@ interface IFEBlockchainLearning is IFEBlockchainLearningMetadata{
     
     function createSession(
         uint256 sessionId,
+        uint256 valueRandomClientSide,
         uint256 maxRound,
         uint256 maxTrainerInOneRound,
         uint256 globalModelId,
@@ -25,20 +26,21 @@ interface IFEBlockchainLearning is IFEBlockchainLearningMetadata{
     function removeSession(uint256 sessionId) external;
     
     function applySession(uint256 sessionId) external payable;
-    function outApplySession(uint256 sessionId) external;
-    // function applyTesting(uint256 sessionId) external;
-    function applyAggregator(uint256 sessionId) external;
+    function applyAggregator(uint256 sessionId) external payable;
     
     function submitUpdate(uint256 sessionId, uint256 updateId) external payable;
-    function refundStakeCheckingRound(uint256 sessionId) external;
-
     function submitCheckingResult(uint256 sessionId, bool[] memory result) external payable;
+    function submitScores(uint256 sessionId, bool[] memory scores) external;
+
+
+    function outApplySession(uint256 sessionId) external;
+    function refundStakeCheckingRound(uint256 sessionId) external;
+    function refundStakeTestingRound(uint256 sessionId) external;
 
 
 
-    function submitScores(uint256 sessionId, uint256[] memory scores) external;
 
-    function submitCandidateAggregator(uint256 sessionId, uint256 candidatesEncode) external;
+    function submitIndexCandidateAggregator(uint256 sessionId, uint256 candidatesEncode) external;
     function submitAggregate(uint256 sessionId, uint256 updateId, uint256[] memory indexOfTrainerHasBadUpdateId) external;
     
     function withdraw(uint256 amount) external;

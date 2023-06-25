@@ -7,5 +7,5 @@ interface IFETokenMetadata {
     function symbol() external view returns (string memory);
     function decimals() external view returns (uint8);
     function balanceOf(address account) external view returns (uint256);
-    function totalSupply() external view  returns (uint256);
+    function totalSupply() external view returns (uint256);
 }

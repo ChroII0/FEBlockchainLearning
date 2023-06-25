@@ -23,7 +23,8 @@ contract TimeLock is ITimeLock{
         ExpirationTime expirationTime;
         StartTime startTime;
     }
-    // uint256 public constant maxExpirationTimeOfReadyRound = 3 days;
+    uint256 public constant maxExpirationTimeOfSelectCandidateAggregator = 3 days;
+    uint256 public constant maxExpirationTimeOfApplyAggregator = 3 days;
     uint256 public minExpirationTimeOfTrainingRound = 3 days;
     uint256 public minExpirationTimeOfCheckingRound = 3 days;
     uint256 public minExpirationTimeOfAggregatingRound = 3 days;
@@ -57,6 +58,20 @@ contract TimeLock is ITimeLock{
         _sessionsTimeLockInfo[sessionId].expirationTime.checkingRound,
         _sessionsTimeLockInfo[sessionId].expirationTime.aggregatingRound,
         _sessionsTimeLockInfo[sessionId].expirationTime.testingRound
+        );
+    }
+    function getStartTimeOfEachRoundInSession(uint256 sessionId) external view override returns(uint256,uint256,uint256,uint256) {
+        return (
+        _sessionsTimeLockInfo[sessionId].startTime.trainingRound,
+        _sessionsTimeLockInfo[sessionId].startTime.checkingRound,
+        _sessionsTimeLockInfo[sessionId].startTime.aggregatingRound,
+        _sessionsTimeLockInfo[sessionId].startTime.testingRound
+        );
+    }
+    function getExpirationTimeOfSelectCandidateAggregatorAndApply() external pure override returns(uint256,uint256) {
+        return (
+            maxExpirationTimeOfSelectCandidateAggregator,
+            maxExpirationTimeOfApplyAggregator
         );
     }
     function checkExpirationTimeOfTrainingRound(uint256 sessionId) external view override returns(bool) {
