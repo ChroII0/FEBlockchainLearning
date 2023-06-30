@@ -9,6 +9,8 @@ contract AdminControl is AccessControl, IAdminControlMetadata{
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
     bytes32 public constant CALLER_TIME_LOCK = keccak256("CALLER_TIME_LOCK");
+    bytes32 public constant CALLER_PERFORMANCE_REWARD_DISTRIBUTION = keccak256("CALLER_PERFORMANCE_REWARD_DISTRIBUTION");
+
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
@@ -25,7 +27,9 @@ contract AdminControl is AccessControl, IAdminControlMetadata{
     function isCallerTimeLock(address account) external view override returns(bool) {
         return hasRole(CALLER_TIME_LOCK, account);
     }
-    
+    function isCallerPerformanceRewardDistribution(address account) external view override returns(bool) {
+        return hasRole(CALLER_PERFORMANCE_REWARD_DISTRIBUTION, account);
+    }
     function setMinter(address minter) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _grantRole(MINTER_ROLE, minter);
     }
@@ -34,5 +38,8 @@ contract AdminControl is AccessControl, IAdminControlMetadata{
     }
     function setCallerTimeLock(address caller) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _grantRole(CALLER_TIME_LOCK, caller);
+    }
+    function setCallerCallerPerformanceRewardDistribution(address caller) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _grantRole(CALLER_PERFORMANCE_REWARD_DISTRIBUTION, caller);
     }
 }

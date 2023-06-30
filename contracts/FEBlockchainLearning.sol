@@ -5,6 +5,7 @@ import "./interfaces/IFEBlockchainLearning.sol";
 import "./interfaces/ITrainerManagement.sol";
 import "./interfaces/IAdminControlMetadata.sol";
 import "./interfaces/ITimeLock.sol";
+import "./interfaces/IPerformanceRewardDistribution.sol";
 import "./interfaces/IFEToken.sol";
 import "./libraries/Session.sol";
 import "./libraries/Random.sol";
@@ -13,7 +14,7 @@ import "./libraries/Random.sol";
 contract FEBlockchainLearning is IFEBlockchainLearning {
     using Random for *;
 
-    uint256 private immutable _secret;
+    uint256 private immutable _secretValueRandom;
 
     Session.Detail[] private _sessions;
     // sessionId => rf
@@ -59,14 +60,24 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
     ITrainerManagement private _trainerManagement;
     IAdminControlMetadata private _adminControl;
     ITimeLock private _timeLock;
+    IPerformanceRewardDistribution private _performanceRewardDistribution;
     IFEToken private _feToken;
 
-    constructor(address adminControl, address trainerManagementAddress, address timeLock, address feToken, uint256 secret) {
+    constructor(
+        address adminControl, 
+        address trainerManagementAddress, 
+        address timeLock, 
+        address performanceRewardDistribution,
+        address feToken, 
+        uint256 secretValueRandom)
+        {
+
         _trainerManagement = ITrainerManagement(trainerManagementAddress);
         _adminControl = IAdminControlMetadata(adminControl);
         _timeLock = ITimeLock(timeLock);
         _feToken = IFEToken(feToken);
-        _secret = secret;
+        _performanceRewardDistribution = IPerformanceRewardDistribution(performanceRewardDistribution);
+        _secretValueRandom = secretValueRandom;
     }
 
     modifier onlyAdmin(address account) {
@@ -229,7 +240,7 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         _sessions.push(sDetail);
         _keyOfSessionDetailBySessionId[sessionId] = _sessions.length - 1;
         _sessionKeysByOwner[msg.sender].push(_sessions.length - 1);
-        _randomFactor[sessionId] = Random.randomNumber(2**90 - 1, valueRandomClientSide, _secret);
+        _randomFactor[sessionId] = Random.randomNumber(2**90 - 1, valueRandomClientSide, _secretValueRandom);
 
         uint256 totalReward = msg.value * 10**REWARD_DECIMAL;
         balanceFeTokenInSession[sessionId] = totalReward;
@@ -252,61 +263,58 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
             }
         }
     }
+    function _skipRound(uint256 sessionId, uint256 key, uint256 currentRound) internal {
+        uint256 refundAmount;
+        address[] memory trainers = _trainers[sessionId][currentRound];
+        
+        if (_sessions[key].info.status == Session.RoundStatus.Training){
+            if (!_timeLock.checkExpirationTimeOfTrainingRound(sessionId)){
+                refundAmount = _calRefundAmount(trainers, sessionId, currentRound, Session.TrainerStatus.Trained);
+            }else revert();
+        }
+        else if (_sessions[key].info.status == Session.RoundStatus.Checking)
+        {
+            if (!_timeLock.checkExpirationTimeOfCheckingRound(sessionId)){
+                refundAmount = _calRefundAmount(trainers, sessionId, currentRound, Session.TrainerStatus.Checked);
+            }else revert();
+        }
+        else if (_sessions[key].info.status == Session.RoundStatus.Checked){
+            if (!_checkOutExpirationTimeApplyAggregator(sessionId)){
+                address[] memory candidates = new address[](MUN_CANDIDATE_AGGREGATOR);
+                for (uint256 i = 0; i < MUN_CANDIDATE_AGGREGATOR; i++){
+                        candidates[i] = _trainers[sessionId][currentRound][_indexCandidateAggregator[sessionId][currentRound][i]];
+                }       
+                refundAmount = _calRefundAmount(candidates, sessionId, currentRound, Session.TrainerStatus.Aggregating);
+            }else revert();
+        }
+        else if (_sessions[key].info.status == Session.RoundStatus.Aggregating){
+            if (!_timeLock.checkExpirationTimeOfAggregatingRound(sessionId)){
+                refundAmount = _calRefundAmount(trainers, sessionId, currentRound, Session.TrainerStatus.Checked);
+            }else revert();
+        }
+        else if (_sessions[key].info.status == Session.RoundStatus.Testing){
+            if (!_timeLock.checkExpirationTimeOfTestRound(sessionId)){
+                refundAmount = _calRefundAmount(trainers, sessionId, currentRound, Session.TrainerStatus.Done);
+            }else revert();
+        }
+        unchecked {
+            balanceFeTokenInSession[sessionId] += refundAmount;
+            _sessions[key].info.currentRound++;
+            _sessions[key].info.maxRound++;
+        }
+        _sessions[key].info.status = Session.RoundStatus.Ready;
+    }
     //FIXME: 
-    function removeSession(uint256 sessionId) external lock override {
-        // uint256 key = _keyOfSessionDetailBySessionId[sessionId];
-        // require(_sessions[key].info.owner == msg.sender);
-        // require(_sessions[key].info.status != Session.RoundStatus.Ready);
-        // require(_sessions[key].info.status != Session.RoundStatus.End);
-        // uint256 currentRound = _sessions[key].info.currentRound;
+    function skipRound(uint256 sessionId) external lock override {
+        uint256 key = _keyOfSessionDetailBySessionId[sessionId];
+        require(_sessions[key].info.owner == msg.sender);
+        require(_sessions[key].info.status != Session.RoundStatus.Ready);
+        require(_sessions[key].info.status != Session.RoundStatus.End);
+        uint256 currentRound = _sessions[key].info.currentRound;
 
-        // (,
-        // uint256 startTimeCheckingRound,
-        // uint256 startTimeAggregatingRound,
-        // uint256 startTimeTestingRound) = _timeLock.getStartTimeOfEachRoundInSession(sessionId);
+        _skipRound(sessionId, key, currentRound);
 
-        // uint256 refundAmount;
-        // address[] memory trainers = _trainers[sessionId][currentRound];
-        // if (startTimeCheckingRound == 0){
-        //     require(!_timeLock.checkExpirationTimeOfTrainingRound(sessionId));
-        //     refundAmount = _calRefundAmount(trainers, sessionId, currentRound, Session.TrainerStatus.Trained);
-            
-        // }
-        // else if (startTimeAggregatingRound == 0){
-        //     if (!_timeLock.checkExpirationTimeOfCheckingRound(sessionId)){
-        //         refundAmount = _calRefundAmount(trainers, sessionId, currentRound, Session.TrainerStatus.Checked);
-        //     }
-        //     else {
-        //         require(_indexCandidateAggregator[sessionId][currentRound].length != 0);
-        //         if (!_checkOutExpirationTimeApplyAggregator(sessionId)){
-        //             address[] memory candidates = new address[](MUN_CANDIDATE_AGGREGATOR);
-        //             for (uint256 i = 0; i < MUN_CANDIDATE_AGGREGATOR; i++){
-        //                 candidates[i] = _trainers[sessionId][currentRound][_indexCandidateAggregator[sessionId][currentRound][i]];
-        //             }       
-        //             refundAmount = _calRefundAmount(candidates, sessionId, currentRound, Session.TrainerStatus.Aggregating);
-        //         }
-        //     }
-        // }
-        // else if (startTimeAggregatingRound == 0 && _indexCandidateAggregator[sessionId][currentRound].length != 0){
-        //     if (!_checkOutExpirationTimeApplyAggregator(sessionId)){
-        //         address[] memory candidates = new address[](MUN_CANDIDATE_AGGREGATOR);
-        //         for (uint256 i = 0; i < MUN_CANDIDATE_AGGREGATOR; i++){
-        //             candidates[i] = _trainers[sessionId][currentRound][_indexCandidateAggregator[sessionId][currentRound][i]];
-        //         }       
-        //         refundAmount = _calRefundAmount(candidates, sessionId, currentRound, Session.TrainerStatus.Aggregating);
-        //     }
-        // }
-        // else if (startTimeAggregatingRound != 0 && startTimeTestingRound == 0){
-            
-        // }
-        // require(_sessions[key].info.status == Session.RoundStatus.Ready);
-        // uint256 rewardRemaining = balanceFeTokenInSession[sessionId] / (10**REWARD_DECIMAL);
-        // balanceFeTokenInSession[sessionId] = 0;
-        // _sessions[key].info.currentRound = _sessions[key].info.maxRound;
-        // _sessions[key].info.status = Session.RoundStatus.End;
-        // payable(msg.sender).transfer(rewardRemaining);
-
-        // emit SessionRemoved(msg.sender, sessionId, rewardRemaining);
+        // emit SessionRemoved(msg.sender, sessionId, key);
     }
 
 
@@ -355,6 +363,7 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         uint256 indexLastTrainer = _trainers[sessionId][currentRound].length - 1;
         address lastTrainer = _trainers[sessionId][currentRound][indexLastTrainer];
         
+        delete _trainers[sessionId][currentRound][indexSender];
         _trainers[sessionId][currentRound][indexSender] = _trainers[sessionId][currentRound][indexLastTrainer];
         _trainers[sessionId][currentRound].pop();
         _trainerDetails[sessionId][currentRound][lastTrainer].indexInTrainerList = indexSender;
@@ -429,7 +438,7 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         unchecked {
             _numCurrentSessionJoined[msg.sender] -= 1;
         }
-        _feToken.mint(msg.sender, amountStake);
+        _feToken.mint(msg.sender, amountStake + _sessions[key].info.baseReward.checkingReward);
     }
     
 
@@ -827,13 +836,26 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         unchecked {
             _numCurrentSessionJoined[msg.sender] -= 1;
         }
-        _feToken.mint(msg.sender, amountStake);
+        _feToken.mint(msg.sender, amountStake + _sessions[key].info.baseReward.testingReward);
     }
 
+    
 
 
+    //FIXME:
+    function getMetadataForPerformanceRewardDistribution(
+        address trainer, 
+        uint256 sessionId, 
+        uint256 round) external view override returns(address[] memory trainers, Session.TrainerDetail[] memory trainerDetails) {
+        // require(msg.sender == address(_performanceRewardDistribution));
+        // uint256 key = _keyOfSessionDetailBySessionId[sessionId];
+        // require(_trainerDetails[sessionId][round][trainer].status == Session.TrainerStatus.Done);
+        // trainers = _trainers[sessionId][round];
+        // trainerDetails = _trainerDetails[sessionId][round];
+    }
+    function claimPerformanceReward(uint256 sessionId) external lock override {
 
-
+    }
 
 
 

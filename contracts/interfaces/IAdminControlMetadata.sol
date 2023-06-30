@@ -6,4 +6,5 @@ interface IAdminControlMetadata {
     function isMinter(address account) external view returns (bool);
     function isBurner(address account) external view returns (bool);
     function isCallerTimeLock(address account) external view returns(bool);
+    function isCallerPerformanceRewardDistribution(address account) external view returns(bool);
 }
