@@ -10,6 +10,9 @@ import "./interfaces/IFEToken.sol";
 import "./libraries/Session.sol";
 import "./libraries/Random.sol";
 
+abstract contract PerformanceRewardDistribution is IPerformanceRewardDistribution {
+    function isClaim(address trainer, uint256 sessionId, uint256 round) public view virtual returns(bool);
+}
 
 contract FEBlockchainLearning is IFEBlockchainLearning {
     using Random for *;
@@ -21,7 +24,7 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
     mapping (uint256 => uint256) private _randomFactor;
     // owner => sessionKey[]
     mapping (address => uint256[]) private _sessionKeysByOwner;
-    // ownerSession => balanceFeToken
+    // sessionId => balanceFeToken
     mapping (uint256 => uint256) public balanceFeTokenInSession;
     // trainer => sessionId => amount
     mapping (address => mapping (uint256 => uint256)) public amountStakes;
@@ -39,6 +42,10 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
     mapping (uint256 => mapping (uint256 => mapping (address => Session.TrainerDetail))) private _trainerDetails;
     // sessionId => round => indexCandidateAggregator[]
     mapping (uint256 => mapping (uint256 => uint256[])) private _indexCandidateAggregator;
+    // sessionId => round => count scores
+    mapping (uint256 => mapping (uint256 => uint256[])) public countScores;
+    //
+    mapping (uint256 => Session.DeadRound[]) private _deadRounds;
 
     uint256 public constant MAX_SESSION_APPLY_SAME_TIME = 5;
     uint256 public constant MUN_CANDIDATE_AGGREGATOR = 5;
@@ -50,17 +57,16 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
     uint256 public ERROR_VOTE_REPORTED = (MIN_TRAINER_IN_ROUND - 1)/2 + (MIN_TRAINER_IN_ROUND - 1)%2;
 
     uint256 public constant REWARD_DECIMAL = 4;
-    uint256 public constant SCORES_DECIMAL = 5;
     uint256 public BASE_TRAINING_REWARD_RATE = 500; // 5%
     uint256 public BASE_CHECKING_REWARD_RATE = 500; // 5%
-    uint256 public BASE_AGGREGATE_REWARD_RATE = 500; // 5%m
+    uint256 public BASE_AGGREGATE_REWARD_RATE = 500; // 5%
     uint256 public BASE_TESTING_REWARD_RATE = 500; // 5%
     uint256 public PERFORMANCE_REWARD_RATE = 10**REWARD_DECIMAL - (BASE_TRAINING_REWARD_RATE + BASE_CHECKING_REWARD_RATE + BASE_TESTING_REWARD_RATE + BASE_AGGREGATE_REWARD_RATE);
 
     ITrainerManagement private _trainerManagement;
     IAdminControlMetadata private _adminControl;
     ITimeLock private _timeLock;
-    IPerformanceRewardDistribution private _performanceRewardDistribution;
+    PerformanceRewardDistribution private _performanceRewardDistribution;
     IFEToken private _feToken;
 
     constructor(
@@ -76,7 +82,7 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         _adminControl = IAdminControlMetadata(adminControl);
         _timeLock = ITimeLock(timeLock);
         _feToken = IFEToken(feToken);
-        _performanceRewardDistribution = IPerformanceRewardDistribution(performanceRewardDistribution);
+        _performanceRewardDistribution = PerformanceRewardDistribution(performanceRewardDistribution);
         _secretValueRandom = secretValueRandom;
     }
 
@@ -230,6 +236,9 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         sDetail.latestGlobalModelParamId = latestGlobalModelParamId;
         sDetail.indexAggregator = MAX_TRAINER_IN_ROUND + 1;
 
+        countScores[sessionId][0] = new uint256[](MIN_TRAINER_IN_ROUND);
+        countScores[sessionId][0][0] = maxTrainerInOneRound;
+
         _timeLock.setExpirationTimeOfEachRoundInSession(
             sessionId,
             expirationTimeOfTrainingRound,
@@ -326,7 +335,7 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         }
         uint256 totalRefundAmount = _calRefundAmount((candidates[0] != address(0) ? candidates : _trainers[sessionId][currentRound]),
                                         sessionId, currentRound, trainerStatusCheck, refundAmount);
-        _sessions[key].deadRounds.push(deadRound);
+        _deadRounds[sessionId].push(deadRound);
         unchecked {
             balanceFeTokenInSession[sessionId] += totalRefundAmount;
             _sessions[key].info.currentRound++;
@@ -480,9 +489,9 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         uint256 numTrainers = _sessions[key].info.maxTrainerInOneRound;
         uint256 amountStake = baseReward * numTrainers;
         amountRefund = 0;
-        if (_sessions[key].deadRounds.length != 0){
-            for (uint i = 0; i < _sessions[key].deadRounds.length; i++){
-                Session.DeadRound memory deadRound = _sessions[key].deadRounds[i];
+        if (_deadRounds[sessionId].length != 0){
+            for (uint i = 0; i < _deadRounds[sessionId].length; i++){
+                Session.DeadRound memory deadRound = _deadRounds[sessionId][i];
                 if (deadRound.status == roundStatusCheck){
                     if (_trainerDetails[sessionId][i][trainer].status == trainerStatusCheck){
                         _trainerDetails[sessionId][i][trainer].status = Session.TrainerStatus.Unavailable;
@@ -871,7 +880,6 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
     }
     
     function _resetRound(uint256 sessionKey) internal {
-        _sessions[sessionKey].info.status = Session.RoundStatus.Ready;
         _sessions[sessionKey].countSubmitted = 0;
         _sessions[sessionKey].numberOfErrorTrainerUpdateId = 0;
         unchecked {
@@ -890,7 +898,9 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
             address trainerSelected = _trainers[sessionId][currentRound][indexOfTrainerListSelectedForTesting[i]];
             if (scores[i]){
                 unchecked {
+                    countScores[sessionId][currentRound][_trainerDetails[sessionId][currentRound][trainerSelected].scores] -= 1;
                     _trainerDetails[sessionId][currentRound][trainerSelected].scores += 1;
+                    countScores[sessionId][currentRound][_trainerDetails[sessionId][currentRound][trainerSelected].scores] += 1;
                 }
             }
         }
@@ -964,21 +974,26 @@ contract FEBlockchainLearning is IFEBlockchainLearning {
         _feToken.mint(msg.sender, amountRefund);
     }
     
-
-
-    //FIXME:
-    function getMetadataForPerformanceRewardDistribution(
-        address trainer, 
-        uint256 sessionId, 
-        uint256 round) external view override returns(address[] memory trainers, Session.TrainerDetail[] memory trainerDetails) {
-        // require(msg.sender == address(_performanceRewardDistribution));
-        // uint256 key = _keyOfSessionDetailBySessionId[sessionId];
-        // require(_trainerDetails[sessionId][round][trainer].status == Session.TrainerStatus.Done);
-        // trainers = _trainers[sessionId][round];
-        // trainerDetails = _trainerDetails[sessionId][round];
-    }
-    function claimPerformanceReward(uint256 sessionId) external lock override {
-
+    function claimPerformanceReward(uint256 sessionId, uint256 round) external lock override {
+        uint256 key = _keyOfSessionDetailBySessionId[sessionId];
+        uint256 currentRound = _sessions[key].info.currentRound;
+        require(_trainerDetails[sessionId][round][msg.sender].status ==  Session.TrainerStatus.Done);
+        require((currentRound > round|| _sessions[key].info.status == Session.RoundStatus.End)
+                || (currentRound == round && !_timeLock.checkExpirationTimeOfTestRound(sessionId)));
+        require(!_performanceRewardDistribution.isClaim(msg.sender, sessionId, round));
+        uint256 score = _trainerDetails[sessionId][round][msg.sender].scores;
+        require(score > 0);
+        uint256 amountSendToTrainer = _performanceRewardDistribution.claim(
+                                            msg.sender,
+                                            sessionId,
+                                            round,
+                                            score,
+                                            _sessions[key].info.performanceReward,
+                                            _sessions[key].info.maxTrainerInOneRound
+                                            );
+        unchecked {
+            balanceFeTokenInSession[sessionId] -= amountSendToTrainer;
+        }
     }
     /**
      * 

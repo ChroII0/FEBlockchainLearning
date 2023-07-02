@@ -56,6 +56,5 @@ library Session {
         uint256 indexAggregator;
         uint256 countSubmitted;
         uint256 numberOfErrorTrainerUpdateId;
-        DeadRound[] deadRounds;
     }
 }

@@ -6,7 +6,7 @@ library Random {
         uint256 seed = uint256(keccak256(abi.encodePacked(
                                                         block.timestamp,
                                                         blockhash(block.number - 1),
-                                                        block.prevrandao,
+                                                        block.difficulty,
                                                         valueRandomClientSide,
                                                         secretValueRandom)));
         uint256 random = seed % length;

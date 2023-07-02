@@ -42,6 +42,6 @@ interface IFEBlockchainLearning is IFEBlockchainLearningMetadata{
 
 
 
-    function claimPerformanceReward(uint256 sessionId) external;
+    function claimPerformanceReward(uint256 sessionId,  uint256 round) external;
     function withdraw(uint256 amount) external;
 }
