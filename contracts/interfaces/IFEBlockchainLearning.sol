@@ -23,7 +23,7 @@ interface IFEBlockchainLearning is IFEBlockchainLearningMetadata{
         uint256 expirationTimeOfAggregatingRound,
         uint256 expirationTimeOfTestingRound
     ) external payable;
-    function skipRound(uint256 sessionId) external;
+    function replaceRound(uint256 sessionId) external;
     
     function applySession(uint256 sessionId) external payable;
     function applyAggregator(uint256 sessionId) external payable;
@@ -36,7 +36,11 @@ interface IFEBlockchainLearning is IFEBlockchainLearningMetadata{
 
     function outApplySession(uint256 sessionId) external;
     function refundStakeCheckingRound(uint256 sessionId) external;
-    function refundStakeTestingRound(uint256 sessionId) external;
+    function refundStakeTestingRoundWhenCurrentRoundIsChecking(uint256 sessionId) external;
+    function refundStakeTestingRoundWhenCurrentRoundIsChecked(uint256 sessionId) external;
+    function refundStakeTestingRoundWhenCurrentRoundIsAggregating(uint256 sessionId) external;
+
+
 
     function claimPerformanceReward(uint256 sessionId) external;
     function withdraw(uint256 amount) external;

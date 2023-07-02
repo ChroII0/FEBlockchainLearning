@@ -5,6 +5,7 @@ library Session {
     enum TrainerStatus {
         Unavailable,
         Training,
+        TrainingFailed,
         Trained,
         Checked,
         Aggregating,
@@ -21,6 +22,7 @@ library Session {
     enum RoundStatus {
         Ready,
         Training,
+        TrainingFailed,
         Checking,
         Checked,
         Aggregating,
@@ -30,7 +32,7 @@ library Session {
     struct BaseReward {
         uint256 trainingReward;
         uint256 checkingReward;
-        uint256 aggregateReward;
+        uint256 aggregatingReward;
         uint256 testingReward;
     }
     struct Info {
@@ -43,6 +45,10 @@ library Session {
         uint256 maxTrainerInOneRound;
         RoundStatus status;
     }
+    struct DeadRound {
+        uint256 round;
+        RoundStatus status;
+    }
     struct Detail {
         Info info;
         uint256 globalModelId;
@@ -50,5 +56,6 @@ library Session {
         uint256 indexAggregator;
         uint256 countSubmitted;
         uint256 numberOfErrorTrainerUpdateId;
+        DeadRound[] deadRounds;
     }
 }
